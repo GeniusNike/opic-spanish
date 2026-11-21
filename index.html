@@ -48,6 +48,7 @@ footer{text-align:center;color:var(--muted);padding:20px 10px 45px}
 .exam-hint{color:var(--muted);font-size:14px}
 .exam-btns{display:flex;gap:10px;flex-wrap:wrap}
 .exam-btns button{padding:11px 14px;font-weight:700}
+.exam-btns button:disabled{opacity:.4;cursor:default}
 .exam-btns .primary{background:#175cd3;color:#fff;border-color:#175cd3}
 .exam-prompt{background:var(--blue2);border-left:4px solid var(--blue);border-radius:9px;padding:15px 17px}
 .exam-review h3{margin:18px 0 6px;color:var(--blue)}
@@ -371,7 +372,8 @@ body.exam-lock{overflow:hidden}
 <div id="examPrompt" class="exam-prompt"></div>
 <div class="exam-timer"><span id="examClock" class="exam-clock">02:00</span><span id="examHint" class="exam-hint"></span></div>
 <div class="exam-btns">
-<button type="button" onclick="examReplay()">🔁 다시 듣기</button>
+<button type="button" id="examPrevBtn" onclick="examPrev()">◀ 이전</button>
+<button type="button" onclick="examRestart()">🔁 다시 시작 (2:00)</button>
 <button type="button" id="examTextBtn" onclick="examToggleText()">👁 질문 보기</button>
 <button type="button" onclick="examStartTimer()">⏱ 바로 시작</button>
 <button type="button" class="primary" id="examNextBtn" onclick="examNext()">다음 ▶</button>
@@ -536,7 +538,7 @@ function examClear() {
   if (exam && exam.timer) { clearInterval(exam.timer); exam.timer = null; }
   stopSpeech();
 }
-function examShow() {
+function examShow(keepText) {
   examClear();
   if (exam.step >= exam.blocks.length) return examReview();
   const q = exam.blocks[exam.step];
@@ -544,9 +546,11 @@ function examShow() {
   $('examReview').hidden = true;
   $('examStep').textContent = '문항 ' + (exam.step + 1) + ' / ' + exam.blocks.length + '  ·  Q' + (11 + exam.step);
   $('examPrompt').innerHTML = q.querySelector('.prompt').innerHTML;
-  $('examPrompt').style.display = 'none';      // exam default: listen only, text hidden
-  exam.hidden = true;
-  $('examTextBtn').textContent = '👁 질문 보기';
+  if (!keepText) exam.hidden = true;           // exam default: listen only, text hidden
+  $('examPrompt').style.display = exam.hidden ? 'none' : 'block';
+  $('examTextBtn').textContent = exam.hidden ? '👁 질문 보기' : '👁 질문 숨기기';
+  $('examPrevBtn').disabled = exam.step === 0;
+  $('examHint').textContent = '';
   exam.left = EXAM_SECONDS;
   $('examClock').textContent = fmt(exam.left);
   $('examClock').classList.remove('over');
@@ -566,10 +570,14 @@ function examSpeak() {
   u.onend = go; u.onerror = go;
   speechSynthesis.speak(u);
 }
-function examReplay() {
+function examRestart() {           // same question again: re-read it and reset the clock to 2:00
   if (!exam || exam.step >= exam.blocks.length) return;
-  if (exam.timer) { clearInterval(exam.timer); exam.timer = null; }
-  examSpeak();
+  examShow(true);
+}
+function examPrev() {
+  if (!exam || exam.step <= 0) return;
+  exam.step--;
+  examShow();
 }
 function examToggleText() {
   exam.hidden = !exam.hidden;
@@ -602,7 +610,7 @@ function examReview() {
     out += '<h3>Q' + (11 + i) + '</h3><div class="exam-prompt">' + b.querySelector('.prompt').innerHTML + '</div>' +
            '<details open><summary>Respuesta modelo · 모범답안</summary><div class="answer">' + b.querySelector('.answer').innerHTML + '</div></details>';
   });
-  out += '<div class="exam-btns" style="margin-top:20px"><button type="button" class="primary" onclick="startExam()">🎯 새 모의시험</button><button type="button" onclick="endExam()">닫기</button></div>';
+  out += '<div class="exam-btns" style="margin-top:20px"><button type="button" onclick="examPrev()">◀ 이전 (Q13 다시)</button><button type="button" class="primary" onclick="startExam()">🎯 새 모의시험</button><button type="button" onclick="endExam()">닫기</button></div>';
   $('examReview').innerHTML = out;
   $('examReview').hidden = false;
   $('exam').scrollTop = 0;
