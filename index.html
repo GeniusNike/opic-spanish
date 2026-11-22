@@ -376,6 +376,7 @@ body.exam-lock{overflow:hidden}
 <button type="button" onclick="examRestart()">🔁 다시 시작 (2:00)</button>
 <button type="button" id="examTextBtn" onclick="examToggleText()">👁 질문 보기</button>
 <button type="button" onclick="examStartTimer()">⏱ 바로 시작</button>
+<button type="button" id="examStopBtn" onclick="examToggleStop()">⏹ 정지</button>
 <button type="button" class="primary" id="examNextBtn" onclick="examNext()">다음 ▶</button>
 </div>
 </div>
@@ -550,6 +551,8 @@ function examShow(keepText) {
   $('examPrompt').style.display = exam.hidden ? 'none' : 'block';
   $('examTextBtn').textContent = exam.hidden ? '👁 질문 보기' : '👁 질문 숨기기';
   $('examPrevBtn').disabled = exam.step === 0;
+  exam.paused = false;
+  $('examStopBtn').textContent = '⏹ 정지';
   $('examHint').textContent = '';
   exam.left = EXAM_SECONDS;
   $('examClock').textContent = fmt(exam.left);
@@ -584,10 +587,26 @@ function examToggleText() {
   $('examPrompt').style.display = exam.hidden ? 'none' : 'block';
   $('examTextBtn').textContent = exam.hidden ? '👁 질문 보기' : '👁 질문 숨기기';
 }
+function examToggleStop() {        // ⏹ 정지: silence the voice and pause the clock; ▶ 계속: resume the clock
+  if (!exam || exam.step >= exam.blocks.length) return;
+  if (exam.paused) {
+    if (exam.left <= 0) return;
+    examStartTimer();
+    return;
+  }
+  examTok++;                       // ignore the pending speech-end callback
+  stopSpeech();
+  if (exam.timer) { clearInterval(exam.timer); exam.timer = null; }
+  exam.paused = true;
+  $('examStopBtn').textContent = '▶ 계속';
+  $('examHint').textContent = '⏸ 정지됨 — 남은 시간 ' + fmt(Math.max(0, exam.left));
+}
 function examStartTimer() {
   if (!exam || exam.timer) return;
   examTok++;                       // ignore the pending speech-end callback
   stopSpeech();
+  exam.paused = false;
+  $('examStopBtn').textContent = '⏹ 정지';
   $('examHint').textContent = '🎙 지금 답변하세요 (약 2분)';
   exam.timer = setInterval(() => {
     exam.left--;
